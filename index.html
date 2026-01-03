@@ -417,7 +417,7 @@ Customize Appearance
 // Replace YOUR_ANON_KEY_HERE with your actual anon key from Supabase
 const SUPABASE_URL = 'https://atepilrfnektfuqtmryx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0ZXBpbHJmbmVrdGZ1cXRtcnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5NDEsImV4cCI6MjA4Mjc2NTk0MX0.gJ8lbzRTA5KImG_cFiuNez1V75R4hVpdeOlxPltjHcE';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STAGES=['seed','sprout','build','polish','done'];
 const MATERIALS=['stone','ceramic','concrete','clay','polymer','composite'];
@@ -454,7 +454,7 @@ function switchAuthTab(mode) {
 }
 
 async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
         state.user = session.user;
         document.getElementById('auth-container').style.display = 'none';
@@ -468,7 +468,7 @@ async function checkAuth() {
 }
 
 async function handleLogin(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
     state.user = data.user;
     document.getElementById('auth-container').style.display = 'none';
@@ -477,7 +477,7 @@ async function handleLogin(email, password) {
 }
 
 async function handleSignup(email, password) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
     if (error) throw error;
     if (data.user && !data.session) {
         return 'Check your email to confirm your account';
@@ -490,7 +490,7 @@ async function handleSignup(email, password) {
 }
 
 async function handleLogout() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     state.user = null;
     state.projects = [];
     state.vault = [];
@@ -502,7 +502,7 @@ async function handleLogout() {
 async function loadDataFromSupabase() {
     if (!state.user) return;
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('user_saves')
             .select('save_data')
             .eq('user_id', state.user.id)
@@ -530,7 +530,7 @@ async function saveDataToSupabase() {
     state.syncing = true;
     
     try {
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('user_saves')
             .upsert({
                 user_id: state.user.id,
