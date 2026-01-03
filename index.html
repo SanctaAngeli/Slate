@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
 :root{--bg-warm:#f5f3f0;--bg-gradient-start:#f7f5f2;--bg-gradient-end:#ede9e4;--divider:rgba(180,170,158,0.3);--divider-strong:rgba(160,150,138,0.5);--text-primary:#2d2a26;--text-secondary:#6b635a;--text-muted:#9a928a;--accent:#7a8b7a;--accent-light:rgba(122,139,122,0.15);--stage-seed:rgba(250,248,245,0.8);--stage-sprout:rgba(245,248,243,0.8);--stage-build:rgba(240,245,240,0.8);--stage-polish:rgba(235,242,237,0.8);--stage-done:rgba(230,240,233,0.8);--sidebar-width:220px;--drawer-width:380px;--cell-size:130px;--gap:2px;--radius:4px;--shadow-subtle:0 2px 8px rgba(45,42,38,0.08);--shadow-lift:0 8px 24px rgba(45,42,38,0.12);--transition-smooth:0.3s cubic-bezier(0.4,0,0.2,1)}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -232,7 +233,37 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:linear-gradient(1
     </style>
 </head>
 <body>
-<div class="app-container">
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="position:fixed;inset:0;background:linear-gradient(165deg,#f7f5f2,#ede9e4);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000">
+    <div style="font-family:'Instrument Serif',Georgia,serif;font-size:48px;margin-bottom:24px">Slate<span style="font-style:italic;opacity:0.6">.</span></div>
+    <div style="width:32px;height:32px;border:2px solid rgba(180,170,158,0.3);border-top-color:#7a8b7a;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- Auth Container -->
+<div id="auth-container" style="display:none;position:fixed;inset:0;background:linear-gradient(165deg,#f7f5f2,#ede9e4);align-items:center;justify-content:center;z-index:999">
+    <div style="background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);border-radius:16px;padding:48px;max-width:400px;width:90%;box-shadow:0 8px 24px rgba(45,42,38,0.12);border:1px solid rgba(180,170,158,0.3)">
+        <div style="font-family:'Instrument Serif',Georgia,serif;font-size:36px;text-align:center;margin-bottom:8px">Slate<span style="font-style:italic;opacity:0.6">.</span></div>
+        <p style="text-align:center;color:#9a928a;font-size:14px;margin-bottom:32px">Track your creative projects</p>
+        
+        <div style="display:flex;gap:2px;margin-bottom:24px;background:rgba(45,42,38,0.04);border-radius:4px;padding:2px">
+            <button onclick="switchAuthTab('login')" id="tab-login" style="flex:1;padding:12px;border:none;background:white;border-radius:3px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:#2d2a26;box-shadow:0 2px 8px rgba(45,42,38,0.08)">Sign In</button>
+            <button onclick="switchAuthTab('signup')" id="tab-signup" style="flex:1;padding:12px;border:none;background:transparent;border-radius:3px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:#9a928a">Sign Up</button>
+        </div>
+        
+        <div id="auth-error" style="display:none;background:rgba(180,80,80,0.1);color:#a04040;padding:12px;border-radius:4px;font-size:13px;text-align:center;margin-bottom:16px"></div>
+        <div id="auth-success" style="display:none;background:rgba(122,139,122,0.1);color:#4d7c5e;padding:12px;border-radius:4px;font-size:13px;text-align:center;margin-bottom:16px"></div>
+        
+        <form id="auth-form" style="display:flex;flex-direction:column;gap:16px">
+            <input type="email" id="auth-email" placeholder="Email" required style="padding:14px 16px;border:1px solid rgba(180,170,158,0.3);border-radius:4px;font-family:inherit;font-size:14px;background:rgba(255,255,255,0.6);outline:none">
+            <input type="password" id="auth-password" placeholder="Password" required style="padding:14px 16px;border:1px solid rgba(180,170,158,0.3);border-radius:4px;font-family:inherit;font-size:14px;background:rgba(255,255,255,0.6);outline:none">
+            <button type="submit" id="auth-submit" style="padding:14px;background:#2d2a26;color:white;border:none;border-radius:4px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Sign In</button>
+        </form>
+    </div>
+</div>
+
+<div class="app-container" id="app-container" style="display:none">
 <aside class="sidebar">
 <div class="logo">Slate<span>.</span></div>
 <nav class="nav-section">
@@ -251,6 +282,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:linear-gradient(1
 </nav>
 <button class="btn-new" id="btn-new-project"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Project</button>
 <button class="btn-vault" id="btn-vault"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Vault</button>
+<button class="btn-vault" id="btn-logout" style="margin-top:8px;color:#a04040;border-color:rgba(180,80,80,0.3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</button>
 </aside>
 <main class="main-content" id="main-content">
 <div class="grid-view" id="grid-view">
@@ -381,6 +413,12 @@ Customize Appearance
 <div class="modal-overlay" id="link-modal"><div class="modal"><h3 class="modal-title">Add Link</h3><div class="link-modal-inputs"><input type="text" class="link-modal-input" placeholder="Label" id="link-label-input"><input type="url" class="link-modal-input" placeholder="https://..." id="link-url-input"></div><div class="modal-actions"><button class="modal-btn secondary" id="link-cancel">Cancel</button><button class="modal-btn primary" id="link-add">Add</button></div></div></div>
 <div class="modal-overlay" id="vault-detail-modal"><div class="modal" style="max-width:500px"><h3 class="modal-title" id="vault-detail-title">Project</h3><div id="vault-detail-cube" style="width:100px;height:100px;margin:20px auto;perspective:400px"></div><p class="modal-text" id="vault-detail-notes"></p><div style="margin-bottom:16px"><div class="drawer-section-title">Tags</div><div id="vault-detail-tags" style="display:flex;flex-wrap:wrap;gap:6px"></div></div><div style="margin-bottom:16px"><div class="drawer-section-title">Completed</div><p id="vault-detail-date" style="font-size:13px;color:var(--text-secondary)"></p></div><div class="modal-actions"><button class="modal-btn secondary" id="vault-detail-close">Close</button><button class="modal-btn primary" id="vault-detail-duplicate">Duplicate</button></div></div></div>
 <script>
+// ===== SUPABASE CONFIGURATION =====
+// Replace YOUR_ANON_KEY_HERE with your actual anon key from Supabase
+const SUPABASE_URL = 'https://atepilrfnektfuqtmryx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_WXm3Sc5ELghUd_aRLlVnMQ_bSrbrSq2';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const STAGES=['seed','sprout','build','polish','done'];
 const MATERIALS=['stone','ceramic','concrete','clay','polymer','composite'];
 const COLORS=[
@@ -397,40 +435,136 @@ const COLORS=[
     {name:'navy',hex:'#334155'},
     {name:'charcoal',hex:'#44403c'}
 ];
-let state={projects:[],vault:[],selectedProjectId:null,currentTodoStage:'seed',currentView:'grid',draggingProjectId:null,currentVaultItem:null,customizePanelOpen:false};
-const DB_NAME='SlateDB',DB_VERSION=1;
-let db=null;
+let state={user:null,projects:[],vault:[],selectedProjectId:null,currentTodoStage:'seed',currentView:'grid',draggingProjectId:null,currentVaultItem:null,customizePanelOpen:false,syncing:false};
 
-async function initDB(){
-    return new Promise((resolve,reject)=>{
-        const req=indexedDB.open(DB_NAME,DB_VERSION);
-        req.onerror=()=>reject(req.error);
-        req.onsuccess=()=>{db=req.result;resolve()};
-        req.onupgradeneeded=e=>{
-            const d=e.target.result;
-            if(!d.objectStoreNames.contains('projects'))d.createObjectStore('projects',{keyPath:'id'});
-            if(!d.objectStoreNames.contains('vault'))d.createObjectStore('vault',{keyPath:'id'});
-        };
-    });
+// ===== AUTH FUNCTIONS =====
+let currentAuthMode = 'login';
+
+function switchAuthTab(mode) {
+    currentAuthMode = mode;
+    document.getElementById('tab-login').style.background = mode === 'login' ? 'white' : 'transparent';
+    document.getElementById('tab-login').style.color = mode === 'login' ? '#2d2a26' : '#9a928a';
+    document.getElementById('tab-login').style.boxShadow = mode === 'login' ? '0 2px 8px rgba(45,42,38,0.08)' : 'none';
+    document.getElementById('tab-signup').style.background = mode === 'signup' ? 'white' : 'transparent';
+    document.getElementById('tab-signup').style.color = mode === 'signup' ? '#2d2a26' : '#9a928a';
+    document.getElementById('tab-signup').style.boxShadow = mode === 'signup' ? '0 2px 8px rgba(45,42,38,0.08)' : 'none';
+    document.getElementById('auth-submit').textContent = mode === 'login' ? 'Sign In' : 'Sign Up';
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-success').style.display = 'none';
 }
 
-async function loadData(){
-    return new Promise(resolve=>{
-        const tx1=db.transaction('projects','readonly');
-        tx1.objectStore('projects').getAll().onsuccess=e=>{
-            state.projects=e.target.result||[];
-            const tx2=db.transaction('vault','readonly');
-            tx2.objectStore('vault').getAll().onsuccess=e2=>{
-                state.vault=e2.target.result||[];
-                resolve();
-            };
-        };
-    });
+async function checkAuth() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        state.user = session.user;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        await loadDataFromSupabase();
+    } else {
+        document.getElementById('auth-container').style.display = 'flex';
+        document.getElementById('app-container').style.display = 'none';
+    }
+    document.getElementById('loading-overlay').style.display = 'none';
 }
 
-function saveProject(p){db.transaction('projects','readwrite').objectStore('projects').put(p)}
-function deleteProjectFromDB(id){db.transaction('projects','readwrite').objectStore('projects').delete(id);state.projects=state.projects.filter(p=>p.id!==id)}
-function saveVaultItem(item){db.transaction('vault','readwrite').objectStore('vault').put(item)}
+async function handleLogin(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    state.user = data.user;
+    document.getElementById('auth-container').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    await loadDataFromSupabase();
+}
+
+async function handleSignup(email, password) {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    if (data.user && !data.session) {
+        return 'Check your email to confirm your account';
+    }
+    state.user = data.user;
+    document.getElementById('auth-container').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    await loadDataFromSupabase();
+    return null;
+}
+
+async function handleLogout() {
+    await supabase.auth.signOut();
+    state.user = null;
+    state.projects = [];
+    state.vault = [];
+    document.getElementById('auth-container').style.display = 'flex';
+    document.getElementById('app-container').style.display = 'none';
+}
+
+// ===== SUPABASE DATA FUNCTIONS =====
+async function loadDataFromSupabase() {
+    if (!state.user) return;
+    try {
+        const { data, error } = await supabase
+            .from('user_saves')
+            .select('save_data')
+            .eq('user_id', state.user.id)
+            .single();
+        
+        if (error && error.code !== 'PGRST116') throw error;
+        
+        if (data && data.save_data) {
+            state.projects = data.save_data.projects || [];
+            state.vault = data.save_data.vault || [];
+        } else {
+            state.projects = [];
+            state.vault = [];
+        }
+        renderGrid();
+    } catch (error) {
+        console.error('Load error:', error);
+        showToast('Error loading data');
+    }
+}
+
+let saveTimeout;
+async function saveDataToSupabase() {
+    if (!state.user || state.syncing) return;
+    state.syncing = true;
+    
+    try {
+        const { error } = await supabase
+            .from('user_saves')
+            .upsert({
+                user_id: state.user.id,
+                save_data: { projects: state.projects, vault: state.vault },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        
+        if (error) throw error;
+    } catch (error) {
+        console.error('Save error:', error);
+    } finally {
+        state.syncing = false;
+    }
+}
+
+function saveProject(p) {
+    const idx = state.projects.findIndex(proj => proj.id === p.id);
+    if (idx >= 0) state.projects[idx] = p;
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveDataToSupabase, 500);
+}
+
+function deleteProjectFromDB(id) {
+    state.projects = state.projects.filter(p => p.id !== id);
+    saveDataToSupabase();
+}
+
+function saveVaultItem(item) {
+    const idx = state.vault.findIndex(v => v.id === item.id);
+    if (idx >= 0) state.vault[idx] = item;
+    else state.vault.push(item);
+    saveDataToSupabase();
+}
+
 function generateId(){return 'p_'+Date.now()+'_'+Math.random().toString(36).substr(2,9)}
 function formatDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'-'}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('visible');setTimeout(()=>t.classList.remove('visible'),2500)}
@@ -809,12 +943,43 @@ function openVaultDetail(item){
 }
 
 document.addEventListener('DOMContentLoaded',async()=>{
-    await initDB();
-    await loadData();
-    renderGrid();
+    // Setup auth form handler
+    document.getElementById('auth-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        const errorEl = document.getElementById('auth-error');
+        const successEl = document.getElementById('auth-success');
+        const submitBtn = document.getElementById('auth-submit');
+        
+        submitBtn.disabled = true;
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+        
+        try {
+            if (currentAuthMode === 'login') {
+                await handleLogin(email, password);
+            } else {
+                const msg = await handleSignup(email, password);
+                if (msg) {
+                    successEl.textContent = msg;
+                    successEl.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            errorEl.textContent = error.message;
+            errorEl.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+    
+    // Check if user is already logged in
+    await checkAuth();
     
     document.getElementById('btn-new-project').onclick=()=>{const p=createProject();if(p){renderGrid();openDrawer(p.id);state.customizePanelOpen=true;document.getElementById('customize-panel').classList.add('visible')}};
     document.getElementById('btn-vault').onclick=()=>{state.currentView='vault';document.getElementById('grid-view').style.display='none';document.getElementById('vault-view').classList.add('active');renderVault()};
+    document.getElementById('btn-logout').onclick=handleLogout;
     document.getElementById('back-to-grid').onclick=()=>{state.currentView='grid';document.getElementById('vault-view').classList.remove('active');document.getElementById('grid-view').style.display='block'};
     document.getElementById('vault-search').oninput=renderVault;
     document.getElementById('drawer-close').onclick=closeDrawer;
